@@ -1,0 +1,28 @@
+# AI PR Review 助手 站点配置（追加到共享 Caddy）。
+#
+# 部署：复制到 VM 的 /etc/caddy/conf.d/pr.caddy，主 Caddyfile 通过
+#   import /etc/caddy/conf.d/*.caddy
+# 引入。三项目各占一个 .caddy 文件、互不冲突（见复盘 D-10 / D-11）。
+#
+# 自动 HTTPS：Caddy 见到域名（非 :80）会自动申请并续期 Let's Encrypt 证书。
+
+pr.qiniu.zdwktlj.top {
+	encode gzip
+
+	# 后端 API 反代到本服务（仅监听 127.0.0.1:8080）
+	@api path /api/*
+	handle @api {
+		# flush_interval -1：关闭反代缓冲，保证 SSE（/api/review/{id}/stream）
+		# 评审进度逐条实时下发，否则前端要等全部结束才一次性收到（见复盘 D-23）。
+		reverse_proxy 127.0.0.1:8080 {
+			flush_interval -1
+		}
+	}
+
+	# 其余走前端静态产物，SPA 回退到 index.html
+	handle {
+		root * /opt/pr-review/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}
