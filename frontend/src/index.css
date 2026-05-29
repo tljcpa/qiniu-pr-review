@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #17150f;
+  color: #e4ddcf;
+  font-family: "JetBrains Mono", Consolas, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 细滚动条，贴合终端工具 */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #322c20;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 选中态用主色，弱化 */
+::selection {
+  background: rgba(208, 139, 58, 0.25);
+}
