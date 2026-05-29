@@ -75,6 +75,34 @@ def test_create_review_returns_id(client):
     assert len(r.json()["review_id"]) == 12
 
 
+def test_job_multi_subscriber_each_gets_full_history():
+    # 修复 D-29：多个连接订阅同一 review 时，各自拿到完整事件序列，互不抢事件。
+    job = review_module._Job(review_module.ReviewRequest(url="http://pr"))
+    sub_a = job.subscribe()
+    # 发布两个事件 + 哨兵
+    job.publish({"event": "fetch_done", "data": {}})
+    job.publish({"event": "done", "data": {}})
+    job.publish(review_module._DONE)
+
+    # 第二个连接在任务结束后才接入，应能回放到全部历史（旧实现会拿不到任何事件）
+    sub_b = job.subscribe()
+
+    def drain(q):
+        out = []
+        while not q.empty():
+            out.append(q.get_nowait())
+        return out
+
+    a = drain(sub_a)
+    b = drain(sub_b)
+    # A 收到两个事件 + 哨兵
+    assert {"event": "fetch_done", "data": {}} in a
+    assert review_module._DONE in a
+    # B（迟到连接）同样拿到完整历史，不是空的
+    assert any(x != review_module._DONE and x.get("event") == "fetch_done" for x in b)
+    assert review_module._DONE in b
+
+
 def test_full_flow_stream_and_result(client):
     review_module.set_service_factory(lambda: _StubService())
     rid = client.post("/api/review", json={"url": "http://pr"}).json()["review_id"]

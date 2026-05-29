@@ -66,28 +66,64 @@ def set_service_factory(factory) -> None:
     _service_factory = factory
 
 
+# 哨兵：标记事件流结束（既进历史也广播，每个订阅者据此收尾）
+_DONE = object()
+
+
 class _Job:
-    """单个 review 任务：持有请求参数、事件队列与最终结果。"""
+    """单个 review 任务：历史事件缓冲 + 多订阅者广播（修复 SSE 多连接共享队列缺陷，见复盘 D-28/D-29）。
+
+    旧实现所有连接共享一个 Queue，事件被某个连接取走后其他连接就拿不到，导致同一 review_id
+    多连接时事件分流错乱、哨兵只被一个连接消费。改为：
+    - history：按序记录全部事件（含 _DONE 哨兵），后到的连接先回放历史，不丢任何事件；
+    - subscribers：每个活动连接一个独立 Queue，新事件广播给所有订阅者。
+    所有队列操作都经事件循环线程（emit 走 call_soon_threadsafe），故无需额外锁。
+    """
 
     def __init__(self, req: "ReviewRequest") -> None:
         self.req = req
-        self.queue: asyncio.Queue = asyncio.Queue()
+        self.history: list = []  # 已发生的全部事件，按序
+        self.subscribers: list[asyncio.Queue] = []  # 当前活动连接的队列
+        self.done = False
         self.status = "pending"  # pending / running / done / error
         self.report: ReviewReport | None = None
         self.error: str | None = None
         self.meta: dict = {}
         self.started = False
 
+    def publish(self, item) -> None:
+        """记入历史并广播给所有订阅者（必须在事件循环线程调用）。"""
+        self.history.append(item)
+        if item is _DONE:
+            self.done = True
+        for q in self.subscribers:
+            q.put_nowait(item)
+
+    def subscribe(self) -> asyncio.Queue:
+        """新连接订阅：原子地回放历史 + 注册队列（调用处到首个 await 之间不得让出）。"""
+        q: asyncio.Queue = asyncio.Queue()
+        # 先把已发生的历史按序塞进新队列（含可能已存在的 _DONE）
+        for item in self.history:
+            q.put_nowait(item)
+        # 未结束才继续接收后续广播
+        if not self.done:
+            self.subscribers.append(q)
+        return q
+
+    def unsubscribe(self, q: asyncio.Queue) -> None:
+        if q in self.subscribers:
+            self.subscribers.remove(q)
+
 
 async def _run_job(job: _Job, req: ReviewRequest) -> None:
-    """后台跑 review，把 emit 事件投递到 job.queue。"""
+    """后台跑 review，把 emit 事件记入历史并广播给所有订阅连接。"""
     loop = asyncio.get_running_loop()
     job.status = "running"
 
     def emit(event_type: str, data: dict) -> None:
         # 该回调在 threadpool 线程里被调用，必须线程安全地投递回事件循环
         payload = {"event": event_type, "data": data}
-        loop.call_soon_threadsafe(job.queue.put_nowait, payload)
+        loop.call_soon_threadsafe(job.publish, payload)
 
     service = _service_factory()
     try:
@@ -102,18 +138,18 @@ async def _run_job(job: _Job, req: ReviewRequest) -> None:
             "cache_stats": service.cache_stats(),
         }
         job.status = "done"
-        job.queue.put_nowait({"event": "done", "data": job.meta})
+        job.publish({"event": "done", "data": job.meta})
     except GitHubFetchError as exc:
         job.status = "error"
         job.error = str(exc)
-        job.queue.put_nowait({"event": "error", "data": {"message": str(exc)}})
+        job.publish({"event": "error", "data": {"message": str(exc)}})
     except Exception as exc:  # noqa: BLE001 - 兜底，任何异常都要让 SSE 收尾
         job.status = "error"
         job.error = f"{type(exc).__name__}: {exc}"
-        job.queue.put_nowait({"event": "error", "data": {"message": job.error}})
+        job.publish({"event": "error", "data": {"message": job.error}})
     finally:
-        # 哨兵：通知 SSE 流结束
-        job.queue.put_nowait(None)
+        # 哨兵：通知所有订阅连接结束
+        job.publish(_DONE)
 
 
 @router.post("/review")
@@ -147,24 +183,30 @@ async def stream_review(review_id: str, request: Request) -> StreamingResponse:
     async def event_gen():
         # 先告诉前端连接已建立
         yield _sse("connected", {"review_id": review_id})
-        # 首次打开流时启动后台 review（与 SSE 连接同生命周期）
+        # 本连接独立订阅：回放历史 + 接收后续广播（多连接互不抢事件，见复盘 D-29）
+        queue = job.subscribe()
+        # 首次打开流时启动后台 review（与 SSE 连接同生命周期）；
+        # 注意先 subscribe 再启动，避免事件在订阅前就发出而丢失
         if not job.started:
             job.started = True
             asyncio.create_task(_run_job(job, job.req))
-        while True:
-            try:
-                # 心跳间隔 15s：兼容空闲超时更短的代理/网关（自审 PR #9 finding [4]，见复盘 D-28）
-                item = await asyncio.wait_for(job.queue.get(), timeout=15.0)
-            except asyncio.TimeoutError:
-                # 空闲超时：先看客户端是否断开，否则发心跳保连接不被代理掐断
-                if await request.is_disconnected():
+        try:
+            while True:
+                try:
+                    # 心跳间隔 15s：兼容空闲超时更短的代理/网关（自审 finding [4]，见复盘 D-28）
+                    item = await asyncio.wait_for(queue.get(), timeout=15.0)
+                except asyncio.TimeoutError:
+                    # 空闲超时：先看客户端是否断开，否则发心跳保连接不被代理掐断
+                    if await request.is_disconnected():
+                        break
+                    yield ": keep-alive\n\n"
+                    continue
+                if item is _DONE:
+                    # 哨兵：结束
                     break
-                yield ": keep-alive\n\n"
-                continue
-            if item is None:
-                # 哨兵：结束
-                break
-            yield _sse(item["event"], item["data"])
+                yield _sse(item["event"], item["data"])
+        finally:
+            job.unsubscribe(queue)
 
     return StreamingResponse(
         event_gen(),
