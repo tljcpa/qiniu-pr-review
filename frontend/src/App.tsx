@@ -99,6 +99,32 @@ export default function App() {
           </div>
         </form>
 
+        {/* 空闲态：用一段事实性的流水线说明填充，而非营销特性网格 */}
+        {state.status === "idle" && (
+          <div className="mt-4 grid grid-cols-1 gap-px border border-line bg-line md:grid-cols-2">
+            <IdleCell
+              step="01"
+              title="拉取变更"
+              body="PyGithub 拉 PR 元信息 / diff / 改动文件全文，分页处理大 PR，二进制与超大文件降级。"
+            />
+            <IdleCell
+              step="02"
+              title="分层上下文 L1–L4"
+              body="按改动规模选层级，受 token 预算动态裁剪；超预算主动声明未完整 review，不强行截断。"
+            />
+            <IdleCell
+              step="03"
+              title="模型路由"
+              body="deepseek-chat 快扫标候选 → deepseek-reasoner 逐条深读核实，保留 R1 思维链。"
+            />
+            <IdleCell
+              step="04"
+              title="误报控制"
+              body="reasoner 判误报直接丢弃；每条 finding 按 verdict+思维链充分度打置信分，低置信折叠。"
+            />
+          </div>
+        )}
+
         {/* 进度日志流 */}
         <div className="mt-4">
           <ProgressLog events={state.events} running={running} />
@@ -180,6 +206,18 @@ export default function App() {
           七牛云 × XEngineer 题目三 · 模型路由 / 分层上下文 / 思维链可见 / 误报控制
         </footer>
       </main>
+    </div>
+  );
+}
+
+function IdleCell({ step, title, body }: { step: string; title: string; body: string }) {
+  return (
+    <div className="bg-panel px-3 py-2.5">
+      <div className="flex items-baseline gap-2">
+        <span className="text-amberdim">{step}</span>
+        <span className="font-bold text-fg">{title}</span>
+      </div>
+      <p className="mt-1 text-muted">{body}</p>
     </div>
   );
 }
