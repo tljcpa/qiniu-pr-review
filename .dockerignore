@@ -1,0 +1,36 @@
+# 收窄 Docker build context：别把这些发给 daemon / 拷进镜像（见复盘 L-06）
+# 后端镜像只需要 backend/ 下的源码与 requirements。
+
+# 虚拟环境 / 依赖目录（最大头，绝不进镜像）
+.venv/
+venv/
+**/node_modules/
+frontend/dist/
+
+# Python 缓存与测试产物
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+.coverage
+htmlcov/
+
+# git 与本地文件
+.git/
+.gitignore
+*.env
+.env
+.env.*
+!.env.example
+
+# 文档/部署脚本对运行镜像无用（减小 context）
+docs/
+deploy/
+*.md
+BRIEF.md
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
