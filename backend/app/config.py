@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     app_port: int = 8080
     cors_origins: str = "*"
 
+    # ---- 上下文工程参数（PR5；阈值是初值，可按实测调，见复盘 D-05）----
+    # 喂给模型的上下文 token 预算（给输出留余量后的输入上限）
+    context_token_budget: int = 24000
+    # 总改动行数 < 此值走 L2（整文件全文）
+    context_l2_max_lines: int = 800
+    # 总改动行数 <= 此值走 L3（抽取式上下文）；超过走 L4（仅 diff）
+    context_l3_max_lines: int = 3000
+
     def cors_origin_list(self) -> list[str]:
         """把逗号分隔的 CORS_ORIGINS 拆成列表。"""
         if self.cors_origins.strip() == "*":
