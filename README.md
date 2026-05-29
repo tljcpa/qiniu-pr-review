@@ -5,7 +5,7 @@
 > 指定一个 GitHub Pull Request，系统自动拉取代码变更并用大模型智能分析，输出**变更总结、风险代码识别、Review 建议**，并把 AI 的推理思维链展示出来，让评审不再是黑盒。
 
 - 在线试用：**https://pr.qiniu.zdwktlj.top** （已上线，可直接体验）
-- 演示视频：待录制（PR14 放到 README 首屏）
+- 演示视频：待录制（录制后放到此处）
 - 架构文档：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 决策与踩坑总账：[docs/复盘.md](docs/复盘.md)
 
@@ -69,8 +69,8 @@ flowchart LR
 | 后端 | Python + FastAPI（async / Pydantic / 自动 OpenAPI） |
 | LLM SDK | openai-python（DeepSeek 兼容 OpenAI 协议，一套通吃多 provider） |
 | GitHub | PyGithub |
-| 前端 | Vite + React + Tailwind + shadcn/ui（PR10） |
-| 部署 | Docker Compose + Caddy 自动 HTTPS（PR11） |
+| 前端 | Vite + React + TypeScript + Tailwind |
+| 部署 | Docker Compose + Caddy 自动 HTTPS |
 
 明确**不使用** LangChain / LlamaIndex —— 核心链路自己实现，约几百行，更显工程功底，也便于精确控制上下文与 token 预算。
 
@@ -92,7 +92,7 @@ flowchart LR
 - 引入交叉验证后单测从 0.9s 变 143s——测试在偷偷打真实网络（L-04）；
 - 后台任务态 dict 无界增长的内存泄漏（L-05）。
 
-这些都不是事后补的漂亮话，而是开发中真实发生、通过测试与在真实服务器上验证才发现并修掉的。**所有代码经过人工审阅、单元测试（81 个）与真实环境端到端验证后定型。**
+这些都不是事后补的漂亮话，而是开发中真实发生、通过测试与在真实服务器上验证才发现并修掉的。**所有代码经过人工审阅、单元测试（85 个）与真实环境端到端验证后定型。**
 
 完整开发过程见提交历史（全程 feature 分支 + PR 工作流）与 [docs/复盘.md](docs/复盘.md)。
 
