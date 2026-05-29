@@ -55,6 +55,8 @@ class Finding(BaseModel):
     reasoning: str | None = None
     # 交叉验证结论（PR12 填充）：agree / disagree / none
     cross_check: str = "none"
+    # 交叉验证模型给出的说明（UI 展示分歧/认同理由）
+    cross_note: str | None = None
 
 
 class ReviewReport(BaseModel):

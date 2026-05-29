@@ -34,12 +34,16 @@ def _raw_to_finding(raw: RawFinding) -> Finding:
         deep_read=raw.deep_read,
         reasoning=raw.reasoning,
         severity=raw.severity,
-        cross_check="none",
+        cross_check=raw.cross_check,
     )
+    # 交叉验证有分歧时：高风险不再当 high 主导，降一档以提醒人工复核（D-24）
+    severity = _normalize_severity(raw.severity)
+    if raw.cross_check == "disagree" and severity == Severity.HIGH:
+        severity = Severity.MEDIUM
     return Finding(
         file=raw.file,
         line_hint=raw.line_hint,
-        severity=_normalize_severity(raw.severity),
+        severity=severity,
         category=_normalize_category(raw.category),
         title=raw.title,
         detail=raw.detail,
@@ -49,7 +53,8 @@ def _raw_to_finding(raw: RawFinding) -> Finding:
         verdict=raw.verdict,
         deep_read=raw.deep_read,
         reasoning=raw.reasoning,
-        cross_check="none",
+        cross_check=raw.cross_check,
+        cross_note=raw.cross_note,
     )
 
 

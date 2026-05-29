@@ -73,3 +73,29 @@ DEEP_READ_USER_TEMPLATE = """## 待核实的疑似问题
 {context}
 
 请深入核实这条问题是否真实成立，并输出 JSON。"""
+
+
+# 交叉验证：异构模型（GPT-4.1-mini）对高风险 finding 做独立第二意见
+CROSS_VALIDATE_SYSTEM = """你是一名独立的高级代码评审专家，受邀对另一套 AI 评审系统标记的"高风险问题"做独立复核。
+你事先不知道对方的推理过程，只看问题描述与代码上下文，独立判断这个问题是否真实成立。
+
+请基于代码事实判断，不要因为对方标了"高风险"就默认认同。
+
+输出严格的 JSON：
+{
+  "agree": true 或 false,
+  "reason": "你认同或反对的简要理由（中文，1-2 句）"
+}
+只输出 JSON，不要额外文字。"""
+
+CROSS_VALIDATE_USER_TEMPLATE = """## 另一套系统标记的高风险问题
+- 文件: {file}
+- 定位: {line_hint}
+- 类别: {category}
+- 标题: {title}
+- 说明: {detail}
+
+## 相关代码上下文
+{context}
+
+这个高风险问题真的成立吗？请独立判断并输出 JSON。"""
