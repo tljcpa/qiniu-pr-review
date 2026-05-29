@@ -1,0 +1,21 @@
+# ===== 后端镜像 =====
+# 部署 pin 3.11（比 BRIEF 推荐一致；本地开发用 3.10，代码避开 3.11-only 语法）
+FROM python:3.11-slim
+
+# 不写 .pyc、日志不缓冲，方便 docker logs 实时看输出
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# 先拷依赖清单单独装，利用 Docker 层缓存（改代码不重装依赖）
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 再拷应用代码
+COPY backend/ ./
+
+EXPOSE 8080
+
+# 生产用 uvicorn 直接起；多 worker 与 reload 由 compose / 环境决定
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

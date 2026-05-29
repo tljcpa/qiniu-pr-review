@@ -1,0 +1,22 @@
+# ===== AI PR Review 助手 编排（占位，PR11 补全前端与 Caddy 反代）=====
+# 三个项目共用一台 VM：本项目用独立 project name 与端口，避免冲突。
+name: pr-review
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    # 对外只暴露 8080（PR11 接入 Caddy 后改为仅内网，由 Caddy 走 443）
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8080/api/health').status==200 else sys.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # frontend / caddy 服务在 PR10 / PR11 加入

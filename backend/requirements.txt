@@ -1,0 +1,9 @@
+# ===== 后端运行依赖（PR1 只引入跑通骨架所需，其余 PR 再按需追加）=====
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+# LLM 与 GitHub 客户端（PR3/PR4 开始真正使用，先在骨架阶段锁版本）
+openai==1.59.6
+PyGithub==2.5.0
+httpx==0.28.1
