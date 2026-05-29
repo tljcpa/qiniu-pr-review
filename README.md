@@ -55,9 +55,12 @@ flowchart LR
 
 ## 设计文档
 
-- 模型选择：docs/MODEL_SELECTION.md（规划中）
-- 上下文获取：docs/CONTEXT_ENGINEERING.md（规划中）
-- 扩展方向：docs/FUTURE_WORK.md（规划中）
+题目明确要求说明的三大设计点，各有一份专门文档：
+
+- 模型选择：[docs/MODEL_SELECTION.md](docs/MODEL_SELECTION.md)
+- 上下文获取：[docs/CONTEXT_ENGINEERING.md](docs/CONTEXT_ENGINEERING.md)
+- 扩展方向：[docs/FUTURE_WORK.md](docs/FUTURE_WORK.md)
+- 完整决策与踩坑总账：[docs/复盘.md](docs/复盘.md)
 
 ## 技术栈
 
