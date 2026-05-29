@@ -18,6 +18,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.config import settings
+from app.core.events import noop_emit
 from app.services.context_builder import ContextBundle
 from app.services.llm_provider import (
     LLMError,
@@ -136,10 +137,9 @@ class ReviewRouter:
         emit: 可选回调 emit(event_type: str, data: dict)，用于向上层（SSE）推送进度。
               附加能力，不传则不影响任何返回值（见复盘 D-19）。
         """
-        # emit 为 None 时给个空操作，省去满地的 if 判断
+        # emit 为 None 时用公共空操作，省去满地的 if 判断
         if emit is None:
-            def emit(event_type, data):
-                return None
+            emit = noop_emit
 
         context_text = bundle.to_prompt_text()
         review = RawReview(summary="", level=bundle.level.value)
@@ -201,8 +201,7 @@ class ReviewRouter:
         emit=None,
     ) -> None:
         if emit is None:
-            def emit(event_type, data):
-                return None
+            emit = noop_emit
 
         reasoner = self._get_reasoner()
         confirmed_count = 0
