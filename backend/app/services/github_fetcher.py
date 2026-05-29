@@ -30,6 +30,19 @@ class GitHubFetchError(Exception):
     """拉取 PR 失败（URL 非法、PR 不存在、鉴权失败、限流耗尽等）。"""
 
 
+def _friendly_github_error(status: int) -> str:
+    """把 GitHub HTTP 状态码翻译成对用户友好的中文提示，不暴露原始 JSON。"""
+    if status == 404:
+        return "找不到这个 PR：仓库或 PR 编号不存在，或是私有仓库当前 token 无权访问。"
+    if status == 403:
+        return "GitHub 拒绝访问：可能触发了 API 限流，或 token 无权访问该仓库，请稍后再试。"
+    if status == 401:
+        return "GitHub 鉴权失败：token 无效或已过期。"
+    if status == 422:
+        return "请求无法处理：请确认 PR 链接格式正确。"
+    return f"GitHub 访问出错（HTTP {status}），请稍后重试或换一个 PR。"
+
+
 # 匹配 https://github.com/<owner>/<repo>/pull/<number>，允许结尾带 /files、#discussion 等
 _URL_RE = re.compile(
     r"github\.com/(?P<owner>[^/\s]+)/(?P<repo>[^/\s]+)/pull/(?P<number>\d+)"
