@@ -9,6 +9,10 @@
 - 架构文档：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 决策与踩坑总账：[docs/复盘.md](docs/复盘.md)
 
+![AI PR Review 助手运行截图](docs/img/demo-screenshot.png)
+
+> 上图：评审一个含风险的 PR，系统识别出 SQL 注入 / 浮点金额 / 空指针三处高危，每条带置信度、可展开的 R1 思维链，并经 GPT-4.1-mini 交叉验证（`[x-check ✓]`）。
+
 ---
 
 ## 核心特性
