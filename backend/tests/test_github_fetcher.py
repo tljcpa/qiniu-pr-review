@@ -15,8 +15,27 @@ import pytest
 from app.services.github_fetcher import (
     GitHubFetcher,
     GitHubFetchError,
+    _friendly_github_error,
     parse_pr_url,
 )
+
+
+def test_friendly_error_404_no_raw_json():
+    msg = _friendly_github_error(404)
+    assert "找不到" in msg
+    # 不暴露原始 GitHub JSON
+    assert "documentation_url" not in msg
+    assert "{" not in msg
+
+
+def test_friendly_error_known_codes():
+    assert "限流" in _friendly_github_error(403)
+    assert "鉴权" in _friendly_github_error(401)
+    assert "格式" in _friendly_github_error(422)
+
+
+def test_friendly_error_unknown_code():
+    assert "HTTP 500" in _friendly_github_error(500)
 
 
 # ---------- URL 解析 ----------
