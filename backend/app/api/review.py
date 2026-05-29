@@ -19,10 +19,15 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app.config import settings
+from app.core.ratelimit import RateLimiter, client_ip
 from app.models.finding import ReviewReport
 from app.services.cache import review_cache
 from app.services.github_fetcher import GitHubFetchError
 from app.services.review_service import ReviewService
+
+# 公开端点防刷闸：每 IP 每窗口最多 N 次（见复盘 D-27）
+_rate_limiter = RateLimiter(settings.rate_limit_max, settings.rate_limit_window)
 
 router = APIRouter(prefix="/api", tags=["review"])
 
@@ -112,12 +117,20 @@ async def _run_job(job: _Job, req: ReviewRequest) -> None:
 
 
 @router.post("/review")
-async def create_review(req: ReviewRequest) -> dict:
+async def create_review(req: ReviewRequest, request: Request) -> dict:
     """登记一个 review 任务，立即返回 review_id。
 
     实际执行在客户端打开 /stream 时启动——这样任务的生命周期与 SSE 连接绑定，
     事件循环全程存活，避免后台任务在 POST 响应结束后被挂起（尤其在某些 ASGI 运行环境下）。
+
+    公开端点：按 IP 限流，防止被刷爆烧光 LLM 余额（见复盘 D-27）。
     """
+    ip = client_ip(request)
+    if not _rate_limiter.allow(ip):
+        raise HTTPException(
+            status_code=429,
+            detail=f"请求过于频繁，请稍后再试（每 {settings.rate_limit_window} 秒最多 {settings.rate_limit_max} 次）。",
+        )
     review_id = uuid.uuid4().hex[:12]
     _register_job(review_id, _Job(req))
     return {"review_id": review_id}

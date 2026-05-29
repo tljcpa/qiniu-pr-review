@@ -19,10 +19,12 @@ def create_app() -> FastAPI:
         version=__version__,
     )
 
+    # CORS：本项目无 Cookie/凭证鉴权，allow_credentials=False，避免 "*"+credentials
+    # 反射任意 Origin 的非法配置（见复盘 D-27）。来源走显式白名单。
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list(),
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

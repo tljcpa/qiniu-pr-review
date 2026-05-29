@@ -52,7 +52,13 @@ class Settings(BaseSettings):
     # ---- 服务参数 ----
     app_host: str = "0.0.0.0"
     app_port: int = 8080
-    cors_origins: str = "*"
+    # CORS 白名单（逗号分隔）。默认收紧为线上域 + 本地开发域，不再用 *（见复盘 D-27）。
+    # 本项目无 Cookie/凭证鉴权，CORS 配合 allow_credentials=False 使用。
+    cors_origins: str = (
+        "https://pr.qiniu.zdwktlj.top,"
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:4173,http://127.0.0.1:4173"
+    )
 
     # ---- 上下文工程参数（PR5；阈值是初值，可按实测调，见复盘 D-05）----
     # 喂给模型的上下文 token 预算（给输出留余量后的输入上限）
@@ -61,6 +67,11 @@ class Settings(BaseSettings):
     context_l2_max_lines: int = 800
     # 总改动行数 <= 此值走 L3（抽取式上下文）；超过走 L4（仅 diff）
     context_l3_max_lines: int = 3000
+
+    # ---- 限流参数（D-27；公开 POST /api/review 防刷，保护 LLM 余额）----
+    # 每个 IP 在 rate_limit_window 秒内最多发起 rate_limit_max 次 review
+    rate_limit_max: int = 10
+    rate_limit_window: int = 60
 
     def cors_origin_list(self) -> list[str]:
         """把逗号分隔的 CORS_ORIGINS 拆成列表。"""
