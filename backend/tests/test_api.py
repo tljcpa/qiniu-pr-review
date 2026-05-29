@@ -110,6 +110,20 @@ def test_get_unknown_id_404(client):
     assert r.status_code == 404
 
 
+def test_jobs_bounded_eviction(client, monkeypatch):
+    # _jobs 是有界 LRU：超过上限丢最旧的，防长跑服务内存泄漏
+    monkeypatch.setattr(review_module, "_MAX_JOBS", 3)
+    review_module.set_service_factory(lambda: _StubService())
+    ids = []
+    for _ in range(5):
+        rid = client.post("/api/review", json={"url": "http://pr"}).json()["review_id"]
+        ids.append(rid)
+    # 最多保留 3 个，最早的 2 个应被淘汰
+    assert len(review_module._jobs) == 3
+    assert ids[0] not in review_module._jobs
+    assert ids[-1] in review_module._jobs
+
+
 def test_fetch_error_surfaces(client):
     review_module.set_service_factory(lambda: _StubService(raise_fetch_error=True))
     rid = client.post("/api/review", json={"url": "http://bad"}).json()["review_id"]

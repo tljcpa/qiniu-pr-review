@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from collections import OrderedDict
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -31,8 +32,19 @@ class ReviewRequest(BaseModel):
     use_cache: bool = True
 
 
-# 任务态：review_id -> {status, queue, report, error, outcome_meta}
-_jobs: dict[str, dict] = {}
+# 任务态：review_id -> {job}。
+# 用 OrderedDict 做有界 LRU：超过上限丢最旧的，避免长跑服务里 _jobs 无限增长（内存泄漏）。
+_jobs: "OrderedDict[str, dict]" = OrderedDict()
+# 进程内保留的最大任务数（演示足够；超出按插入顺序淘汰最旧）
+_MAX_JOBS = 100
+
+
+def _register_job(review_id: str, job: "_Job") -> None:
+    """登记任务并执行有界淘汰。"""
+    _jobs[review_id] = {"job": job}
+    while len(_jobs) > _MAX_JOBS:
+        # popitem(last=False)：丢最早插入的那个
+        _jobs.popitem(last=False)
 
 
 # service 工厂：默认建真 ReviewService；测试可替换为返回 stub 的工厂，避免打网络
@@ -107,7 +119,7 @@ async def create_review(req: ReviewRequest) -> dict:
     事件循环全程存活，避免后台任务在 POST 响应结束后被挂起（尤其在某些 ASGI 运行环境下）。
     """
     review_id = uuid.uuid4().hex[:12]
-    _jobs[review_id] = {"job": _Job(req)}
+    _register_job(review_id, _Job(req))
     return {"review_id": review_id}
 
 
