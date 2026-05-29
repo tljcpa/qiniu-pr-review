@@ -16,8 +16,10 @@ def test_repo_root_points_to_repo():
     assert (_REPO_ROOT / "backend").is_dir()
 
 
-def test_env_loads_from_explicit_file(tmp_path):
-    # 显式给一个临时 .env，应被加载（验证机制本身有效）
+def test_env_loads_from_explicit_file(tmp_path, monkeypatch):
+    # 显式给一个临时 .env，应被加载（验证机制本身有效）。
+    # 真实环境变量优先级高于 _env_file，所以测试前先清掉它，保证测试不受运行 shell 影响（hermetic）。
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     env_file = tmp_path / "custom.env"
     env_file.write_text("DEEPSEEK_API_KEY=test-key-123\n", encoding="utf-8")
     s = Settings(_env_file=str(env_file))
