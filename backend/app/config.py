@@ -4,15 +4,31 @@
 - 用 pydantic-settings 从环境变量 / .env 读取，类型校验在启动期完成，
   避免运行到一半才发现 key 没配。
 - 不在代码里写任何真实密钥，全部来自环境（CI / Docker / .env）。
+- .env 路径用绝对路径解析（仓库根 + backend 目录都找），不依赖启动时的 cwd。
+  否则从 backend/ 起 uvicorn 时相对 ".env" 找不到仓库根的 .env，key 静默为空（见复盘 L-03）。
 """
+
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# 本文件位于 <repo>/backend/app/config.py
+_APP_DIR = Path(__file__).resolve().parent          # <repo>/backend/app
+_BACKEND_DIR = _APP_DIR.parent                       # <repo>/backend
+_REPO_ROOT = _BACKEND_DIR.parent                     # <repo>
+
+# 候选 .env 位置：仓库根优先（部署放这里），其次 backend 目录（本地开发可能放这）
+_ENV_CANDIDATES = [
+    str(_REPO_ROOT / ".env"),
+    str(_BACKEND_DIR / ".env"),
+]
+
 
 class Settings(BaseSettings):
-    # env_file 指向仓库根的 .env；extra=ignore 容忍 .env 里有本程序不认识的变量
+    # env_file 接受多个候选路径（绝对路径），按顺序加载；都不存在则仅用真实环境变量。
+    # extra=ignore 容忍 .env 里有本程序不认识的变量。
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_CANDIDATES,
         env_file_encoding="utf-8",
         extra="ignore",
     )

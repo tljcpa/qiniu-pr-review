@@ -36,6 +36,11 @@ def create_app() -> FastAPI:
             "version": __version__,
         }
 
+    # 挂载 review 路由（PR9）
+    from app.api.review import router as review_router
+
+    application.include_router(review_router)
+
     return application
 
 
