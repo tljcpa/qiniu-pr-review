@@ -179,10 +179,8 @@ class GitHubFetcher:
                     continue
                 break
             except GithubException as exc:
-                # 404 / 401 / 422 等：不可重试，直接抛
-                raise GitHubFetchError(
-                    f"GitHub API 错误 status={exc.status}: {exc.data}"
-                ) from exc
+                # 404 / 401 / 422 等：不可重试，翻译成友好中文后抛（不暴露原始 JSON）
+                raise GitHubFetchError(_friendly_github_error(exc.status)) from exc
         raise GitHubFetchError(
             f"GitHub 限流重试 {self._max_retries} 次仍失败: {last_error}"
         ) from last_error

@@ -122,6 +122,28 @@ class _StubClient:
         return self._repo
 
 
+class _RaisingClient:
+    """get_repo 抛 GithubException(status)，验证 fetch 把它翻译成友好消息。"""
+
+    def __init__(self, status):
+        self._status = status
+
+    def get_repo(self, full_name):
+        from github.GithubException import GithubException
+        raise GithubException(self._status, {"message": "Not Found"}, None)
+
+
+def test_fetch_404_surfaces_friendly_message():
+    # 回归 L-07：404 应是友好中文，且不含原始 JSON（这条能抓住"helper 没接上"的回归）
+    fetcher = GitHubFetcher(client=_RaisingClient(404))
+    with pytest.raises(GitHubFetchError) as ei:
+        fetcher.fetch("https://github.com/a/b/pull/1")
+    msg = str(ei.value)
+    assert "找不到" in msg
+    assert "documentation_url" not in msg
+    assert "{" not in msg
+
+
 # ---------- fetch ----------
 
 def test_fetch_maps_fields():
