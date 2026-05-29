@@ -31,6 +31,9 @@ make run                                 # 等价于 uvicorn app.main:app --port
 
 # 3. 冒烟测试
 curl http://localhost:8080/api/health    # -> {"status":"ok",...}
+
+# 4. 跑单元测试（85+，全离线、不需要任何 API key）
+make test
 ```
 
 Docker 方式：
