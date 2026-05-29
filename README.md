@@ -4,7 +4,7 @@
 >
 > 指定一个 GitHub Pull Request，系统自动拉取代码变更并用大模型智能分析，输出**变更总结、风险代码识别、Review 建议**，并把 AI 的推理思维链展示出来，让评审不再是黑盒。
 
-- 在线试用：https://pr.qiniu.zdwktlj.top （PR11 部署后开放）
+- 在线试用：**https://pr.qiniu.zdwktlj.top** （已上线，可直接体验）
 - 演示视频：待录制（PR14 放到 README 首屏）
 - 架构文档：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 决策与踩坑总账：[docs/复盘.md](docs/复盘.md)
