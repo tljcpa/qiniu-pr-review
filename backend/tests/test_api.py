@@ -53,10 +53,12 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _restore_factory():
-    # 每个测试后恢复默认工厂，避免互相污染
+    # 每个测试前后都重置限流器，避免前一个测试的请求计数干扰（限流器是模块级单例）
+    review_module._rate_limiter.reset()
     yield
     review_module.set_service_factory(review_module._default_service_factory)
     review_module._jobs.clear()
+    review_module._rate_limiter.reset()
 
 
 def test_health(client):
@@ -122,6 +124,31 @@ def test_jobs_bounded_eviction(client, monkeypatch):
     assert len(review_module._jobs) == 3
     assert ids[0] not in review_module._jobs
     assert ids[-1] in review_module._jobs
+
+
+def test_rate_limit_429(client, monkeypatch):
+    # 公开端点超过 IP 限流应返回 429（见复盘 D-27）
+    review_module.set_service_factory(lambda: _StubService())
+    # 把上限压到 2 次便于测试
+    from app.core.ratelimit import RateLimiter
+    monkeypatch.setattr(review_module, "_rate_limiter", RateLimiter(max_calls=2, window=60))
+    assert client.post("/api/review", json={"url": "http://pr"}).status_code == 200
+    assert client.post("/api/review", json={"url": "http://pr"}).status_code == 200
+    # 第 3 次超限
+    r = client.post("/api/review", json={"url": "http://pr"})
+    assert r.status_code == 429
+    assert "频繁" in r.json()["detail"]
+
+
+def test_cors_credentials_disabled():
+    # CORS 不应允许携带凭证（避免 *+credentials 反射 Origin 的非法配置）
+    from app.main import create_app
+    from starlette.middleware.cors import CORSMiddleware
+
+    app = create_app()
+    cors = [m for m in app.user_middleware if m.cls is CORSMiddleware]
+    assert cors, "应挂载 CORS 中间件"
+    assert cors[0].kwargs.get("allow_credentials") is False
 
 
 def test_fetch_error_surfaces(client):
