@@ -126,17 +126,30 @@ class ReviewRouter:
             self._reasoner = get_reasoner_provider()
         return self._reasoner
 
-    def review(self, bundle: ContextBundle) -> RawReview:
-        """对一个上下文 bundle 跑完整两段式 review。"""
+    def review(self, bundle: ContextBundle, emit=None) -> RawReview:
+        """对一个上下文 bundle 跑完整两段式 review。
+
+        emit: 可选回调 emit(event_type: str, data: dict)，用于向上层（SSE）推送进度。
+              附加能力，不传则不影响任何返回值（见复盘 D-19）。
+        """
+        # emit 为 None 时给个空操作，省去满地的 if 判断
+        if emit is None:
+            def emit(event_type, data):
+                return None
+
         context_text = bundle.to_prompt_text()
         review = RawReview(summary="", level=bundle.level.value)
 
+        emit("scan_start", {"level": bundle.level.value})
+
         # ---- 第一遍：chat 快扫 ----
         candidates = self._scan(context_text, review)
+        emit("scan_done", {"summary": review.summary, "candidate_count": len(candidates)})
 
         # ---- 第二遍：reasoner 逐条深读 ----
-        self._deep_read(candidates, context_text, review)
+        self._deep_read(candidates, context_text, review, emit)
 
+        emit("review_done", {"finding_count": len(review.findings)})
         return review
 
     def _scan(self, context_text: str, review: RawReview) -> list[RawFinding]:
@@ -180,10 +193,16 @@ class ReviewRouter:
         return candidates
 
     def _deep_read(
-        self, candidates: list[RawFinding], context_text: str, review: RawReview
+        self, candidates: list[RawFinding], context_text: str, review: RawReview,
+        emit=None,
     ) -> None:
+        if emit is None:
+            def emit(event_type, data):
+                return None
+
         reasoner = self._get_reasoner()
         confirmed_count = 0
+        deep_total = min(len(candidates), self._max_deep_read)
 
         for index, cand in enumerate(candidates):
             if index >= self._max_deep_read:
@@ -192,6 +211,11 @@ class ReviewRouter:
                 cand.verdict = "unverified"
                 review.findings.append(cand)
                 continue
+
+            emit("deep_read_start", {
+                "index": index, "total": deep_total,
+                "title": cand.title, "file": cand.file,
+            })
 
             messages = [
                 {"role": "system", "content": DEEP_READ_SYSTEM},
@@ -246,10 +270,18 @@ class ReviewRouter:
             if verdict == "false_positive":
                 # 假阳性：丢弃，不进最终结果（误报控制）
                 review.trace.append(f"deep_read[{index}]: 判为误报，已丢弃 - {cand.title}")
+                emit("finding_verdict", {
+                    "index": index, "verdict": "false_positive",
+                    "title": cand.title, "dropped": True,
+                })
                 continue
 
             confirmed_count += 1
             review.findings.append(cand)
+            emit("finding_verdict", {
+                "index": index, "verdict": verdict,
+                "title": cand.title, "severity": cand.severity, "dropped": False,
+            })
 
         review.trace.append(
             f"deep_read: 深读 {min(len(candidates), self._max_deep_read)} 条，"

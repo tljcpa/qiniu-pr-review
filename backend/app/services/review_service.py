@@ -57,8 +57,18 @@ class ReviewService:
         self._cache = cache if cache is not None else review_cache
         self._budget = budget
 
-    def review_pr(self, url: str, *, use_cache: bool = True) -> ReviewOutcome:
+    def review_pr(self, url: str, *, use_cache: bool = True, emit=None) -> ReviewOutcome:
+        """跑一次 review。emit(event_type, data) 可选，用于 SSE 进度推送（见 D-19）。"""
+        if emit is None:
+            def emit(event_type, data):
+                return None
+
+        emit("fetch_start", {"url": url})
         pr = self._fetcher.fetch(url)
+        emit("fetch_done", {
+            "title": pr.title, "additions": pr.additions, "deletions": pr.deletions,
+            "changed_files": pr.changed_files_count,
+        })
 
         # 每文件 diff 哈希
         per_file_hash = {f.filename: file_diff_hash(f.filename, f.patch) for f in pr.files}
@@ -68,6 +78,7 @@ class ReviewService:
         if use_cache:
             cached_report = self._cache.get(full_key)
             if cached_report is not None:
+                emit("cache_hit", {"scope": "report"})
                 return ReviewOutcome(
                     report=copy.deepcopy(cached_report),
                     from_cache=True,
@@ -78,7 +89,11 @@ class ReviewService:
         # 构建上下文 + 跑 router
         builder = ContextBuilder(self._fetcher, budget=self._budget)
         bundle = builder.build(pr)
-        raw = self._router.review(bundle)
+        emit("context_built", {
+            "level": bundle.level.value, "tokens": bundle.total_tokens,
+            "truncated": len(bundle.truncated_notes),
+        })
+        raw = self._router.review(bundle, emit=emit)
 
         # 增量：把本次 findings 按文件归位，并用文件级缓存补齐/复用
         cached_files, reviewed_files = self._apply_file_cache(

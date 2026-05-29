@@ -83,7 +83,7 @@ class _CountingRouter:
         self._raw_factory = raw_factory
         self.calls = 0
 
-    def review(self, bundle):
+    def review(self, bundle, emit=None):
         self.calls += 1
         return self._raw_factory()
 
