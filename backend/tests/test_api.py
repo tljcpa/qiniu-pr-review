@@ -69,10 +69,23 @@ def test_health(client):
 
 def test_create_review_returns_id(client):
     review_module.set_service_factory(lambda: _StubService())
-    r = client.post("/api/review", json={"url": "http://pr"})
+    r = client.post("/api/review", json={"url": "https://github.com/o/r/pull/1"})
     assert r.status_code == 200
     assert "review_id" in r.json()
     assert len(r.json()["review_id"]) == 12
+
+
+def test_create_review_rejects_invalid_url(client):
+    # 非法 PR URL 直接 400，不创建任务（见复盘 D-32）
+    for bad in ["", "   ", "not a url", "https://example.com/foo", "https://github.com/o/r"]:
+        r = client.post("/api/review", json={"url": bad})
+        assert r.status_code == 400, f"应拒绝: {bad!r}"
+    # 合法简写与完整 URL 都应放行
+    review_module.set_service_factory(lambda: _StubService())
+    assert client.post("/api/review", json={"url": "o/r#7"}).status_code == 200
+    assert client.post(
+        "/api/review", json={"url": "https://github.com/o/r/pull/7"}
+    ).status_code == 200
 
 
 def test_job_multi_subscriber_each_gets_full_history():
@@ -105,7 +118,7 @@ def test_job_multi_subscriber_each_gets_full_history():
 
 def test_full_flow_stream_and_result(client):
     review_module.set_service_factory(lambda: _StubService())
-    rid = client.post("/api/review", json={"url": "http://pr"}).json()["review_id"]
+    rid = client.post("/api/review", json={"url": "https://github.com/o/r/pull/1"}).json()["review_id"]
 
     # 消费 SSE 流（TestClient 同步读取整个流直到结束）
     with client.stream("GET", f"/api/review/{rid}/stream") as resp:
@@ -146,7 +159,7 @@ def test_jobs_bounded_eviction(client, monkeypatch):
     review_module.set_service_factory(lambda: _StubService())
     ids = []
     for _ in range(5):
-        rid = client.post("/api/review", json={"url": "http://pr"}).json()["review_id"]
+        rid = client.post("/api/review", json={"url": "https://github.com/o/r/pull/1"}).json()["review_id"]
         ids.append(rid)
     # 最多保留 3 个，最早的 2 个应被淘汰
     assert len(review_module._jobs) == 3
@@ -160,10 +173,10 @@ def test_rate_limit_429(client, monkeypatch):
     # 把上限压到 2 次便于测试
     from app.core.ratelimit import RateLimiter
     monkeypatch.setattr(review_module, "_rate_limiter", RateLimiter(max_calls=2, window=60))
-    assert client.post("/api/review", json={"url": "http://pr"}).status_code == 200
-    assert client.post("/api/review", json={"url": "http://pr"}).status_code == 200
+    assert client.post("/api/review", json={"url": "https://github.com/o/r/pull/1"}).status_code == 200
+    assert client.post("/api/review", json={"url": "https://github.com/o/r/pull/1"}).status_code == 200
     # 第 3 次超限
-    r = client.post("/api/review", json={"url": "http://pr"})
+    r = client.post("/api/review", json={"url": "https://github.com/o/r/pull/1"})
     assert r.status_code == 429
     assert "频繁" in r.json()["detail"]
 
@@ -181,7 +194,7 @@ def test_cors_credentials_disabled():
 
 def test_fetch_error_surfaces(client):
     review_module.set_service_factory(lambda: _StubService(raise_fetch_error=True))
-    rid = client.post("/api/review", json={"url": "http://bad"}).json()["review_id"]
+    rid = client.post("/api/review", json={"url": "https://github.com/o/r/pull/2"}).json()["review_id"]
     with client.stream("GET", f"/api/review/{rid}/stream") as resp:
         body = "".join(resp.iter_text())
     assert "event: error" in body

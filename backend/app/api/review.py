@@ -23,7 +23,7 @@ from app.config import settings
 from app.core.ratelimit import RateLimiter, client_ip
 from app.models.finding import ReviewReport
 from app.services.cache import review_cache
-from app.services.github_fetcher import GitHubFetchError
+from app.services.github_fetcher import GitHubFetchError, parse_pr_url
 from app.services.review_service import ReviewService
 
 # 公开端点防刷闸：每 IP 每窗口最多 N 次（见复盘 D-27）
@@ -161,6 +161,13 @@ async def create_review(req: ReviewRequest, request: Request) -> dict:
 
     公开端点：按 IP 限流，防止被刷爆烧光 LLM 余额（见复盘 D-27）。
     """
+    # 先校验 URL 格式（复用 parse_pr_url 这套唯一真源）：格式错直接 400，
+    # 不占用限流配额、不创建任务、不调模型（见复盘 D-32）。
+    try:
+        parse_pr_url(req.url)
+    except GitHubFetchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     ip = client_ip(request)
     if not _rate_limiter.allow(ip):
         raise HTTPException(
