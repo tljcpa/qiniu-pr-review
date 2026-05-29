@@ -28,6 +28,7 @@ from app.services.cache import (
     review_cache,
 )
 from app.services.context_builder import ContextBuilder
+from app.services.cross_validator import CrossValidator
 from app.services.github_fetcher import GitHubFetcher
 from app.services.router import RawReview, ReviewRouter
 
@@ -49,12 +50,19 @@ class ReviewService:
         fetcher: GitHubFetcher | None = None,
         router: ReviewRouter | None = None,
         cache: InProcessCache | None = None,
+        cross_validator: "CrossValidator | None" = None,
+        enable_cross_validate: bool = True,
         budget: int | None = None,
     ) -> None:
         # 全部可注入，单测用 stub 不打网络
         self._fetcher = fetcher if fetcher is not None else GitHubFetcher()
         self._router = router if router is not None else ReviewRouter()
         self._cache = cache if cache is not None else review_cache
+        # 交叉验证可注入/可禁用；不注入则默认建一个（Azure 不可用时内部静默跳过）
+        if cross_validator is not None:
+            self._cross = cross_validator
+        else:
+            self._cross = CrossValidator(enabled=enable_cross_validate)
         self._budget = budget
 
     def review_pr(self, url: str, *, use_cache: bool = True, emit=None) -> ReviewOutcome:
@@ -94,6 +102,9 @@ class ReviewService:
             "truncated": len(bundle.truncated_notes),
         })
         raw = self._router.review(bundle, emit=emit)
+
+        # 多模型交叉验证：对高风险 confirmed finding 做异构第二意见（亮点 4，D-24/D-25）
+        self._cross.validate(raw, bundle.to_prompt_text(), emit=emit)
 
         # 增量：把本次 findings 按文件归位，并用文件级缓存补齐/复用
         cached_files, reviewed_files = self._apply_file_cache(

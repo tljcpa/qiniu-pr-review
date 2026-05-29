@@ -105,7 +105,7 @@ def test_report_cache_second_call_is_instant():
     pr = _pr([_file("x.py", "@@ +1 @@\n+a\n")])
     cache = InProcessCache()
     router = _CountingRouter(_raw_review)
-    svc = ReviewService(fetcher=_StubFetcher(pr), router=router, cache=cache)
+    svc = ReviewService(fetcher=_StubFetcher(pr), router=router, cache=cache, enable_cross_validate=False)
 
     out1 = svc.review_pr("http://pr")
     assert out1.from_cache is False
@@ -121,7 +121,7 @@ def test_report_returns_independent_copy():
     # 缓存返回的是深拷贝，外部改动不污染缓存
     pr = _pr([_file("x.py", "@@ +1 @@\n+a\n")])
     svc = ReviewService(fetcher=_StubFetcher(pr), router=_CountingRouter(_raw_review),
-                        cache=InProcessCache())
+                        cache=InProcessCache(), enable_cross_validate=False)
     out1 = svc.review_pr("http://pr")
     out1.report.summary = "被改了"
     out2 = svc.review_pr("http://pr")
@@ -134,11 +134,11 @@ def test_changed_diff_invalidates_report_cache():
     router = _CountingRouter(_raw_review)
 
     pr1 = _pr([_file("x.py", "@@ +1 @@\n+a\n")], head_sha="sha1")
-    svc1 = ReviewService(fetcher=_StubFetcher(pr1), router=router, cache=cache)
+    svc1 = ReviewService(fetcher=_StubFetcher(pr1), router=router, cache=cache, enable_cross_validate=False)
     svc1.review_pr("http://pr")
 
     pr2 = _pr([_file("x.py", "@@ +1 @@\n+CHANGED\n")], head_sha="sha2")
-    svc2 = ReviewService(fetcher=_StubFetcher(pr2), router=router, cache=cache)
+    svc2 = ReviewService(fetcher=_StubFetcher(pr2), router=router, cache=cache, enable_cross_validate=False)
     out = svc2.review_pr("http://pr")
     assert out.from_cache is False
     assert router.calls == 2  # 内容变了，重新调
@@ -148,7 +148,7 @@ def test_use_cache_false_bypasses():
     pr = _pr([_file("x.py", "@@ +1 @@\n+a\n")])
     cache = InProcessCache()
     router = _CountingRouter(_raw_review)
-    svc = ReviewService(fetcher=_StubFetcher(pr), router=router, cache=cache)
+    svc = ReviewService(fetcher=_StubFetcher(pr), router=router, cache=cache, enable_cross_validate=False)
     svc.review_pr("http://pr", use_cache=True)
     svc.review_pr("http://pr", use_cache=False)
     assert router.calls == 2  # 第二次绕过缓存强制重跑

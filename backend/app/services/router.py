@@ -54,6 +54,10 @@ class RawFinding:
     deep_read: bool = False
     # 来源轨迹，便于调试与答辩演示
     source: str = "chat"  # chat / reasoner
+    # 交叉验证结论（PR12 CrossValidator 填）：none / agree / disagree
+    cross_check: str = "none"
+    # 交叉验证模型给出的说明（UI 展示分歧理由）
+    cross_note: str | None = None
 
 
 @dataclass

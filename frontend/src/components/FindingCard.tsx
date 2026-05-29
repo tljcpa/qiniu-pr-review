@@ -51,6 +51,16 @@ export function FindingCard({ finding }: Props) {
             [confirmed]
           </span>
         )}
+        {finding.cross_check === "agree" && (
+          <span className="text-amber" title="GPT-4.1-mini 交叉验证：同意">
+            [x-check ✓]
+          </span>
+        )}
+        {finding.cross_check === "disagree" && (
+          <span className="text-sev_med" title="GPT-4.1-mini 交叉验证：有分歧，已降级">
+            [x-check ✗ 分歧]
+          </span>
+        )}
       </div>
 
       <div className="px-3 py-2">
@@ -64,6 +74,14 @@ export function FindingCard({ finding }: Props) {
           <div className="mt-2 border-l-2 border-amberdim pl-2 text-fg">
             <span className="text-amber">fix </span>
             <span className="whitespace-pre-wrap">{finding.suggestion}</span>
+          </div>
+        )}
+
+        {/* 交叉验证第二意见（亮点 4）：异构模型独立复核结论 */}
+        {finding.cross_note && (
+          <div className="mt-2 border-l-2 border-line pl-2 text-muted">
+            <span className="text-link">x-check (GPT-4.1-mini) </span>
+            <span className="whitespace-pre-wrap">{finding.cross_note}</span>
           </div>
         )}
 
