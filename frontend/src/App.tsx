@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { FindingCard } from "./components/FindingCard";
 import { ProgressLog } from "./components/ProgressLog";
 import { useReview } from "./useReview";
-import type { Finding } from "./types";
+import { splitFindings } from "./logic";
 
 const SAMPLE = "https://github.com/psf/requests/pull/7487";
 
@@ -15,19 +15,10 @@ export default function App() {
   const running = state.status === "running";
 
   // 低置信默认折叠（误报控制 UI 体现）
-  const { mainFindings, lowFindings } = useMemo(() => {
-    const findings = state.report?.findings ?? [];
-    const main: Finding[] = [];
-    const low: Finding[] = [];
-    for (const f of findings) {
-      if (f.confidence === "low") {
-        low.push(f);
-      } else {
-        main.push(f);
-      }
-    }
-    return { mainFindings: main, lowFindings: low };
-  }, [state.report]);
+  const { mainFindings, lowFindings } = useMemo(
+    () => splitFindings(state.report?.findings ?? []),
+    [state.report]
+  );
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
