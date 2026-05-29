@@ -27,6 +27,7 @@ from app.services.cache import (
     report_hash,
     review_cache,
 )
+from app.core.events import noop_emit
 from app.services.context_builder import ContextBuilder
 from app.services.cross_validator import CrossValidator
 from app.services.github_fetcher import GitHubFetcher
@@ -68,8 +69,7 @@ class ReviewService:
     def review_pr(self, url: str, *, use_cache: bool = True, emit=None) -> ReviewOutcome:
         """跑一次 review。emit(event_type, data) 可选，用于 SSE 进度推送（见 D-19）。"""
         if emit is None:
-            def emit(event_type, data):
-                return None
+            emit = noop_emit
 
         emit("fetch_start", {"url": url})
         pr = self._fetcher.fetch(url)

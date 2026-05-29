@@ -153,7 +153,8 @@ async def stream_review(review_id: str, request: Request) -> StreamingResponse:
             asyncio.create_task(_run_job(job, job.req))
         while True:
             try:
-                item = await asyncio.wait_for(job.queue.get(), timeout=30.0)
+                # 心跳间隔 15s：兼容空闲超时更短的代理/网关（自审 PR #9 finding [4]，见复盘 D-28）
+                item = await asyncio.wait_for(job.queue.get(), timeout=15.0)
             except asyncio.TimeoutError:
                 # 空闲超时：先看客户端是否断开，否则发心跳保连接不被代理掐断
                 if await request.is_disconnected():

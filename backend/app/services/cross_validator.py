@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 
+from app.core.events import noop_emit
 from app.services.llm_provider import LLMError, get_verifier_provider
 from app.services.prompts import (
     CROSS_VALIDATE_SYSTEM,
@@ -59,8 +60,7 @@ class CrossValidator:
     def validate(self, review: RawReview, context_text: str, emit=None) -> None:
         """就地给 review.findings 里的高风险项填 cross_check / cross_note。"""
         if emit is None:
-            def emit(event_type, data):
-                return None
+            emit = noop_emit
 
         if not self._enabled:
             return
