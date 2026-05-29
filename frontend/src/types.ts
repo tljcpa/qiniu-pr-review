@@ -18,6 +18,7 @@ export interface Finding {
   deep_read: boolean;
   reasoning: string | null;
   cross_check: string;
+  cross_note: string | null;
 }
 
 export interface ReviewReport {
