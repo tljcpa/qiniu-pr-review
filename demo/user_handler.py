@@ -5,16 +5,11 @@ import sqlite3
 import subprocess
 import os
 
-db_conn = sqlite3.connect("users.db")
 
 def get_user(username):
-    # BUG: SQL 注入漏洞 — 未使用参数化查询
     cursor = db_conn.cursor()
-    query = "SELECT * FROM users WHERE username = '" + username + "'"
-    cursor.execute(query)
-    return cursor.fetchone()
-
-def reset_password(user_id, new_password):
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    return cursor.fetchone()def reset_password(user_id, new_password):
     # BUG: 密码明文存储
     cursor = db_conn.cursor()
     cursor.execute("UPDATE users SET password = ? WHERE id = ?", (new_password, user_id))
