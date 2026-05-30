@@ -2,7 +2,7 @@
 
 端点：
     POST /api/review/{review_id}/fix/{finding_index}
-        触发 AI 改码管线：how88 生成补丁 → DeepSeek 审核 → 开 PR
+        触发 AI 改码管线：DeepSeek 生成补丁 → DeepSeek 审核 → 开 PR
 
 返回：
     FixResponse：patch / review_verdict / pr_url / status / error
@@ -41,7 +41,7 @@ async def fix_finding(
     """对指定 finding 触发 AI 改码闭环。
 
     需登录（Bearer token）且用户已绑定 GitHub PAT。
-    管线：how88 生成补丁 → DeepSeek 审核 → 开 PR（审过才执行）。
+    管线：DeepSeek 生成补丁 → DeepSeek 审核 → 开 PR（审过才执行）。
     """
     # 取 review job
     entry = _jobs.get(review_id)

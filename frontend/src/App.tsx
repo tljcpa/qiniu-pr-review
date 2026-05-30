@@ -170,10 +170,12 @@ export default function App() {
           </div>
         )}
 
-        {/* 进度日志流 */}
-        <div className="mt-4">
-          <ProgressLog events={state.events} running={running} />
-        </div>
+        {/* 进度日志流：仅在审查进行中或出错时显示，完成后隐藏 */}
+        {state.status !== "done" && (
+          <div className="mt-4">
+            <ProgressLog events={state.events} running={running} />
+          </div>
+        )}
 
         {/* 错误 */}
         {state.status === "error" && (
