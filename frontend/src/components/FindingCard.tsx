@@ -33,8 +33,8 @@ export function FindingCard({ finding }: Props) {
 
   return (
     <div className={`border border-line border-l-2 bg-panel ${SEV_BORDER[finding.severity] ?? "border-l-sev_low"}`}>
-      {/* 头部一行：高密度元信息 */}
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line px-3 py-1.5 text-xs">
+      {/* 头部一行：代码型元信息，全等宽（像 lint 输出的定位行） */}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line px-3 py-1.5 font-mono text-xs">
         <span className={`font-bold ${SEV_TEXT[finding.severity] ?? "text-sev_low"}`}>
           {SEV_LABEL[finding.severity] ?? finding.severity}
         </span>
@@ -63,8 +63,9 @@ export function FindingCard({ finding }: Props) {
         )}
       </div>
 
-      <div className="px-3 py-2">
-        <div className="font-bold text-fg">{finding.title}</div>
+      {/* 正文：散文用无衬线（IBM Plex Sans），可读性更好 */}
+      <div className="px-3 py-2 font-sans">
+        <div className="font-semibold text-fg">{finding.title}</div>
 
         {finding.detail && (
           <p className="mt-1 whitespace-pre-wrap text-muted">{finding.detail}</p>
@@ -72,7 +73,7 @@ export function FindingCard({ finding }: Props) {
 
         {finding.suggestion && (
           <div className="mt-2 border-l-2 border-amberdim pl-2 text-fg">
-            <span className="text-amber">fix </span>
+            <span className="font-mono text-amber">fix </span>
             <span className="whitespace-pre-wrap">{finding.suggestion}</span>
           </div>
         )}
@@ -80,22 +81,22 @@ export function FindingCard({ finding }: Props) {
         {/* 交叉验证第二意见（亮点 4）：异构模型独立复核结论 */}
         {finding.cross_note && (
           <div className="mt-2 border-l-2 border-line pl-2 text-muted">
-            <span className="text-link">x-check (GPT-4.1-mini) </span>
+            <span className="font-mono text-link">x-check(gpt-4.1-mini) </span>
             <span className="whitespace-pre-wrap">{finding.cross_note}</span>
           </div>
         )}
 
-        {/* 思维链可展开（亮点 3）——不用紫色，用与正文同系的低饱和色 */}
+        {/* 思维链可展开（亮点 3）：触发器与内容都等宽，像查看原始输出 */}
         {finding.reasoning && (
           <div className="mt-2 border-t border-line pt-2">
             <button
               onClick={() => setOpen((v) => !v)}
-              className="text-xs text-link hover:text-fg"
+              className="font-mono text-xs text-link hover:text-fg"
             >
               {open ? "[-]" : "[+]"} reasoning_content (R1 思维链)
             </button>
             {open && (
-              <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap border border-line bg-bg p-3 text-xs leading-relaxed text-muted">
+              <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap border border-line bg-bg p-3 font-mono text-xs leading-relaxed text-muted">
                 {finding.reasoning}
               </pre>
             )}

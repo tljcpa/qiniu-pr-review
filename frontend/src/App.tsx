@@ -31,23 +31,24 @@ export default function App() {
 
   return (
     <div className="min-h-full">
-      {/* 顶栏：工具风，左标识右元信息 */}
+      {/* 顶栏：IDE/工具风，左标识右元信息 */}
       <header className="border-b border-line bg-panel">
         <div className="mx-auto flex max-w-5xl items-baseline gap-3 px-4 py-2.5">
-          <span className="font-bold text-amber">pr-review</span>
-          <span className="text-faint">/</span>
-          <span className="text-muted">GitHub PR 代码评审</span>
-          <span className="ml-auto text-xs text-faint">
+          <span className="font-mono font-bold text-amber">pr-review</span>
+          <span className="font-mono text-faint">/</span>
+          <span className="font-sans text-muted">GitHub PR 代码评审</span>
+          <span className="ml-auto font-mono text-xs text-faint">
             deepseek-chat + reasoner · 分层上下文 · 思维链可见
           </span>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-5">
-        {/* 输入区：单行命令式 */}
-        <form onSubmit={onSubmit} className="border border-line bg-panel">
-          <div className="flex items-center gap-2 border-b border-line px-3 py-2">
-            <span className="text-amberdim">pr</span>
+        {/* 输入区：终端提示符面板 */}
+        <form onSubmit={onSubmit} className="overflow-hidden border border-line bg-bg">
+          <div className="flex items-center gap-2 border-b border-line bg-panel px-3 py-2 font-mono">
+            <span className="select-none text-amber">pr-review:~$</span>
+            <span className="select-none text-amberdim">review</span>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -59,12 +60,12 @@ export default function App() {
             <button
               type="submit"
               disabled={running || !url.trim()}
-              className="shrink-0 border border-amberdim bg-panel2 px-4 py-1 font-bold text-amber transition-colors hover:bg-amberdim hover:text-bg disabled:cursor-not-allowed disabled:opacity-40"
+              className="shrink-0 border border-amberdim bg-panel2 px-4 py-1 font-mono font-bold text-amber transition-colors hover:bg-amberdim hover:text-bg disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {running ? "reviewing…" : "review"}
+              {running ? "reviewing…" : "↵ review"}
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-4 px-3 py-1.5 text-xs text-muted">
+          <div className="flex flex-wrap items-center gap-4 px-3 py-1.5 font-mono text-xs text-muted">
             <label className="flex cursor-pointer items-center gap-1.5">
               <input
                 type="checkbox"
@@ -72,7 +73,7 @@ export default function App() {
                 onChange={(e) => setUseCache(e.target.checked)}
                 className="accent-amber"
               />
-              use cache
+              --cache
             </label>
             <button
               type="button"
@@ -80,7 +81,7 @@ export default function App() {
               className="text-link hover:text-fg"
               disabled={running}
             >
-              load sample
+              load-sample
             </button>
             {state.status !== "idle" && (
               <button type="button" onClick={reset} className="text-faint hover:text-fg">
@@ -123,8 +124,8 @@ export default function App() {
 
         {/* 错误 */}
         {state.status === "error" && (
-          <div className="mt-4 border border-sev_high border-l-2 bg-panel px-3 py-2 text-sev_high">
-            error: {state.error}
+          <div className="mt-4 border border-sev_high border-l-2 bg-panel px-3 py-2 font-mono text-sev_high">
+            <span className="text-amberdim">! </span>error: {state.error}
           </div>
         )}
 
@@ -133,7 +134,7 @@ export default function App() {
           <div className="mt-5">
             {/* 总结 + 统计条 */}
             <div className="border border-line bg-panel">
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-line px-3 py-1.5 text-xs">
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b border-line px-3 py-1.5 font-mono text-xs">
                 <span className="text-muted">
                   context <span className="text-fg">{state.report.context_level}</span>
                 </span>
@@ -154,15 +155,16 @@ export default function App() {
                 )}
               </div>
               <div className="px-3 py-2">
-                <div className="mb-1 text-xs uppercase tracking-wider text-amber">summary</div>
-                <p className="whitespace-pre-wrap text-fg">{state.report.summary}</p>
+                <div className="mb-1 font-mono text-xs uppercase tracking-wider text-amber">summary</div>
+                <p className="whitespace-pre-wrap font-sans text-fg">{state.report.summary}</p>
               </div>
             </div>
 
             {/* findings */}
             {mainFindings.length === 0 && lowFindings.length === 0 ? (
-              <div className="mt-3 border border-amberdim border-l-2 bg-panel px-3 py-2 text-fg">
-                no significant risk — 候选问题经 reasoner 二次核实后未保留误报。
+              <div className="mt-3 border border-amberdim border-l-2 bg-panel px-3 py-2">
+                <span className="font-mono text-amber">no significant risk</span>
+                <span className="font-sans text-fg"> — 候选问题经 reasoner 二次核实后未保留误报。</span>
               </div>
             ) : (
               <div className="mt-3 space-y-2">
@@ -177,7 +179,7 @@ export default function App() {
               <div className="mt-3">
                 <button
                   onClick={() => setShowLow((v) => !v)}
-                  className="w-full border border-line bg-panel px-3 py-1.5 text-left text-xs text-muted hover:text-fg"
+                  className="w-full border border-line bg-panel px-3 py-1.5 text-left font-mono text-xs text-muted hover:text-fg"
                 >
                   {showLow ? "[-]" : "[+]"} {lowFindings.length} low-confidence finding(s) — folded (possible false positives)
                 </button>
@@ -193,7 +195,7 @@ export default function App() {
           </div>
         )}
 
-        <footer className="mt-10 border-t border-line pt-3 text-xs text-faint">
+        <footer className="mt-10 border-t border-line pt-3 font-mono text-xs text-faint">
           七牛云 × XEngineer 题目三 · 模型路由 / 分层上下文 / 思维链可见 / 误报控制
         </footer>
       </main>
@@ -205,10 +207,10 @@ function IdleCell({ step, title, body }: { step: string; title: string; body: st
   return (
     <div className="bg-panel px-3 py-2.5">
       <div className="flex items-baseline gap-2">
-        <span className="text-amberdim">{step}</span>
-        <span className="font-bold text-fg">{title}</span>
+        <span className="font-mono text-amberdim">{step}</span>
+        <span className="font-sans font-semibold text-fg">{title}</span>
       </div>
-      <p className="mt-1 text-muted">{body}</p>
+      <p className="mt-1 font-sans text-muted">{body}</p>
     </div>
   );
 }
