@@ -58,6 +58,11 @@ def create_app() -> FastAPI:
 
     application.include_router(review_router)
 
+    # 挂载 AI 修复路由（PR48）
+    from app.api.fix import router as fix_router
+
+    application.include_router(fix_router)
+
     return application
 
 

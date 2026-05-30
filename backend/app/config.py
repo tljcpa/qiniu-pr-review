@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     # ---- GitHub ----
     gh_token: str = ""
 
+    # ---- how88 中转（PR48：AI 改码管线）----
+    how88_base: str = "https://how88.top"
+    how88_grunt_key: str = ""
+    how88_model: str = "claude-opus-4-8"
+
     # ---- 用户系统（PR46）----
     # JWT 签名密钥：生产必须换成随机高熵字符串（openssl rand -hex 32）
     jwt_secret: str = "CHANGE_ME_in_production"
