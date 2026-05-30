@@ -49,6 +49,16 @@ class Settings(BaseSettings):
     # ---- GitHub ----
     gh_token: str = ""
 
+    # ---- 用户系统（PR46）----
+    # JWT 签名密钥：生产必须换成随机高熵字符串（openssl rand -hex 32）
+    jwt_secret: str = "CHANGE_ME_in_production"
+    jwt_expire_hours: int = 72
+    # SQLite 数据库文件路径（相对路径从项目根解析）
+    db_path: str = str(_REPO_ROOT / "pr_review.db")
+    # PAT 加密主密钥（hex 编码的 32 字节 AES key）：生产必须换
+    # openssl rand -hex 32
+    pat_encrypt_key: str = "0" * 64  # 占位，.env 里覆盖
+
     # ---- 服务参数 ----
     app_host: str = "0.0.0.0"
     app_port: int = 8080

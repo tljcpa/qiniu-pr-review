@@ -9,18 +9,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.config import settings
+from app.db import init_db
 
 
 def create_app() -> FastAPI:
     """应用工厂：便于测试时构造独立实例。"""
+    # 启动时建表（幂等，已存在不重建）
+    init_db()
+
     application = FastAPI(
         title="AI PR Review 助手",
         description="基于大模型的 GitHub Pull Request 智能评审工具",
         version=__version__,
     )
 
-    # CORS：本项目无 Cookie/凭证鉴权，allow_credentials=False，避免 "*"+credentials
-    # 反射任意 Origin 的非法配置（见复盘 D-27）。来源走显式白名单。
+    # CORS：keep allow_credentials=False（见复盘 D-27）。
+    # Bearer token 通过显式 Authorization 头发送，不依赖浏览器 credentials 机制（cookies）；
+    # 前端 fetch 不需要 credentials:'include'，所以 False 是正确且更安全的选择。
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list(),
@@ -37,6 +42,11 @@ def create_app() -> FastAPI:
             "service": "pr-review",
             "version": __version__,
         }
+
+    # 挂载认证路由（PR46）
+    from app.api.auth import router as auth_router
+
+    application.include_router(auth_router)
 
     # 挂载 review 路由（PR9）
     from app.api.review import router as review_router

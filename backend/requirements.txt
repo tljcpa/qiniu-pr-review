@@ -7,3 +7,7 @@ pydantic-settings==2.7.1
 openai==1.59.6
 PyGithub==2.5.0
 httpx==0.28.1
+# 用户系统（PR46：SQLite ORM + bcrypt 密码哈希 + JWT 鉴权）
+sqlalchemy==2.0.36
+bcrypt==4.2.1
+PyJWT==2.10.1
