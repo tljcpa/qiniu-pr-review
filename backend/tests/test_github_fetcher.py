@@ -64,6 +64,28 @@ def test_parse_invalid_raises():
         parse_pr_url("not a pr url")
 
 
+def test_parse_rejects_non_github_host():
+    # SSRF 收口（D-33）：只接受 github.com，拒绝其他域名/绕过写法
+    bad = [
+        "https://evil.com/x/y/pull/1",
+        "https://evil.com/github.com/x/y/pull/1",  # 把 github.com 塞进路径绕过
+        "https://github.com.evil.com/x/y/pull/1",  # 域名后缀伪装
+        "http://169.254.169.254/x/y/pull/1",       # 云元数据 IP
+        "ftp://github.com/x/y/pull/1",             # 非 http(s) 协议
+        "https://notgithub.com/x/y/pull/1",
+    ]
+    for url in bad:
+        with pytest.raises(GitHubFetchError):
+            parse_pr_url(url)
+
+
+def test_parse_accepts_www_github():
+    # www.github.com 是合法的
+    assert parse_pr_url("https://www.github.com/psf/requests/pull/6432") == (
+        "psf", "requests", 6432,
+    )
+
+
 # ---------- stub 构造 ----------
 
 def _gh_file(filename, status="modified", add=1, dele=1, patch="@@ -1 +1 @@", sha="abc"):
