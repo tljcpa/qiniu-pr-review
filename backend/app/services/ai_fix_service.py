@@ -1,10 +1,10 @@
 """AI 改码闭环服务（PR48）。
 
-管线：finding + diff 片段 → how88(Claude Opus) 生成补丁
+管线：finding + diff 片段 → DeepSeek(deepseek-chat) 生成补丁
       → DeepSeek 审核补丁 → 审过则用用户 PAT 在其仓库开新分支+提 PR
 
 安全铁律（每个步骤都要遵守）：
-  1. how88 只收到：finding 文本 + 代码片段（非敏感 diff），绝不含 GH_TOKEN/用户 PAT
+  1. DeepSeek 只收到：finding 文本 + 代码片段（非敏感 diff），绝不含 GH_TOKEN/用户 PAT
   2. 用户 PAT 只在第三步（开 PR）被解密使用，使用后立即丢弃，不缓存不打日志
   3. 新分支只开在用户自己的 repo（从 PR URL 解析出 owner/repo，验证与 PAT 的 github_username 匹配）
   4. 绝不直推 main；新分支命名 ai-fix/<review_id>-<finding_index>
@@ -36,7 +36,7 @@ class FixResult:
 
 
 def _build_patch_prompt(finding: Finding, diff_context: str) -> str:
-    """构造给 how88 的 prompt：finding + 代码上下文，不含任何密钥。"""
+    """构造给 DeepSeek 的补丁生成 prompt：finding + 代码上下文，不含任何密钥。"""
     return f"""You are an expert software engineer tasked with fixing a code issue found during a PR review.
 
 ## Issue Found
@@ -114,11 +114,32 @@ Respond in JSON format:
 Be conservative: when in doubt, reject."""
 
 
-def call_how88_for_patch(finding: Finding, diff_context: str) -> str:
-    """调 how88(Claude Opus) 生成补丁，stream:true 模式。
+def call_deepseek_for_patch(finding: Finding, diff_context: str) -> str:
+    """调 DeepSeek(deepseek-chat) 生成补丁。
 
-    返回完整响应文本；how88 收到的内容不含任何密钥。
+    选用 deepseek_chat_model 而非 reasoner：补丁生成是确定性代码变换任务，
+    不需要深度推理；chat 模型延迟更低（~10s vs ~60s），适合 demo 实时录制。
+    返回完整响应文本；DeepSeek 收到的内容不含任何密钥。
     """
+    from openai import OpenAI
+
+    client = OpenAI(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+    )
+    prompt = _build_patch_prompt(finding, diff_context)
+    resp = client.chat.completions.create(
+        model=settings.deepseek_chat_model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=2048,
+        temperature=0.1,
+    )
+    return resp.choices[0].message.content or ""
+
+
+# 保留 import httpx 以防其他地方用到，但补丁生成已不再使用它
+def _call_how88_for_patch_DEPRECATED(finding: Finding, diff_context: str) -> str:  # noqa: N802
+    """已废弃：how88 grunt key 已过额度。保留仅供历史参考。"""
     prompt = _build_patch_prompt(finding, diff_context)
 
     headers = {
@@ -387,16 +408,16 @@ def run_fix_pipeline(
 
     user_pat 是调用方传入的明文 PAT，本函数不存储它。
     """
-    # 步骤 1：how88 生成补丁
+    # 步骤 1：DeepSeek(deepseek-chat) 生成补丁
     try:
-        raw_response = call_how88_for_patch(finding, diff_context)
+        raw_response = call_deepseek_for_patch(finding, diff_context)
     except Exception as exc:
         return FixResult(
             status="error",
             patch=None,
             review_verdict="",
             pr_url=None,
-            error=f"how88 调用失败：{type(exc).__name__}: {exc}",
+            error=f"DeepSeek 补丁生成失败：{type(exc).__name__}: {exc}",
         )
 
     patch = _parse_patch_from_response(raw_response)
@@ -404,7 +425,7 @@ def run_fix_pipeline(
         return FixResult(
             status="rejected",
             patch=None,
-            review_verdict="how88 认为此问题无法通过简单补丁修复",
+            review_verdict="DeepSeek 认为此问题无法通过简单补丁修复",
             pr_url=None,
             error=None,
         )
