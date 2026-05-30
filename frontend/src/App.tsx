@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
+import { apiFixFinding } from "./auth";
+import { AuthModal } from "./components/AuthModal";
 import { FindingCard } from "./components/FindingCard";
+import { PATSettings } from "./components/PATSettings";
 import { ProgressLog } from "./components/ProgressLog";
-import { useReview } from "./useReview";
 import { splitFindings } from "./logic";
+import { useAuth } from "./useAuth";
+import { useReview } from "./useReview";
 
 const SAMPLE = "https://github.com/psf/requests/pull/7487";
 
@@ -10,7 +14,10 @@ export default function App() {
   const [url, setUrl] = useState("");
   const [useCache, setUseCache] = useState(true);
   const [showLow, setShowLow] = useState(false);
-  const { state, start, reset, publish, publishToPR } = useReview();
+  const [showAuth, setShowAuth] = useState(false);
+  const [showPAT, setShowPAT] = useState(false);
+  const { state, start, reset, publish, publishToPR, reviewId } = useReview();
+  const { auth, register, login, logout, bindPAT, unbindPAT } = useAuth();
 
   const running = state.status === "running";
 
@@ -31,15 +38,61 @@ export default function App() {
 
   return (
     <div className="min-h-full">
+      {/* 模态框 */}
+      {showAuth && (
+        <AuthModal
+          onClose={() => setShowAuth(false)}
+          onRegister={register}
+          onLogin={login}
+        />
+      )}
+      {showPAT && auth.user && (
+        <PATSettings
+          hasPat={auth.user.has_pat}
+          githubUsername={auth.user.github_username}
+          onBind={bindPAT}
+          onUnbind={unbindPAT}
+          onClose={() => setShowPAT(false)}
+        />
+      )}
+
       {/* 顶栏：IDE/工具风，左标识右元信息 */}
       <header className="border-b border-line bg-panel">
-        <div className="mx-auto flex max-w-5xl items-baseline gap-3 px-4 py-2.5">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-2.5">
           <span className="font-mono font-bold text-amber">pr-review</span>
           <span className="font-mono text-faint">/</span>
           <span className="font-sans text-muted">GitHub PR 代码评审</span>
-          <span className="ml-auto font-mono text-xs text-faint">
+          <span className="ml-auto font-mono text-xs text-faint hidden md:block">
             deepseek-chat + reasoner · 分层上下文 · 思维链可见
           </span>
+          {/* 用户区：右侧 */}
+          <div className="flex items-center gap-2 font-mono text-xs">
+            {auth.status === "logged_in" && auth.user ? (
+              <>
+                <button
+                  onClick={() => setShowPAT(true)}
+                  className={`border px-2 py-0.5 transition-colors ${auth.user.has_pat ? "border-amber text-amber hover:bg-amberdim hover:text-bg" : "border-line text-muted hover:border-amber hover:text-amber"}`}
+                  title={auth.user.has_pat ? `已绑定 @${auth.user.github_username}` : "绑定 GitHub PAT 以使用 AI 修复"}
+                >
+                  {auth.user.has_pat ? `@${auth.user.github_username ?? auth.user.username}` : "绑定 PAT"}
+                </button>
+                <button
+                  onClick={logout}
+                  className="text-faint hover:text-fg"
+                  title="退出登录"
+                >
+                  [logout]
+                </button>
+              </>
+            ) : auth.status === "logged_out" ? (
+              <button
+                onClick={() => setShowAuth(true)}
+                className="border border-amberdim px-2 py-0.5 text-amber hover:bg-amberdim hover:text-bg transition-colors"
+              >
+                登录 / 注册
+              </button>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -206,7 +259,15 @@ export default function App() {
             ) : (
               <div className="mt-3 space-y-2">
                 {mainFindings.map((f, i) => (
-                  <FindingCard key={`m-${i}`} finding={f} />
+                  <FindingCard
+                    key={`m-${i}`}
+                    finding={f}
+                    onFix={
+                      reviewId && auth.status === "logged_in" && auth.user?.has_pat
+                        ? () => apiFixFinding(reviewId, i)
+                        : undefined
+                    }
+                  />
                 ))}
               </div>
             )}
@@ -223,7 +284,15 @@ export default function App() {
                 {showLow && (
                   <div className="mt-2 space-y-2">
                     {lowFindings.map((f, i) => (
-                      <FindingCard key={`l-${i}`} finding={f} />
+                      <FindingCard
+                        key={`l-${i}`}
+                        finding={f}
+                        onFix={
+                          reviewId && auth.status === "logged_in" && auth.user?.has_pat
+                            ? () => apiFixFinding(reviewId, mainFindings.length + i)
+                            : undefined
+                        }
+                      />
                     ))}
                   </div>
                 )}

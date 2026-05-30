@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FixResponse } from "../auth";
 import type { Finding } from "../types";
 
 // 严重度只用左边框色条表达（语义，不做装饰性叠色）
@@ -26,10 +27,29 @@ const CAT_LABEL: Record<string, string> = {
 
 interface Props {
   finding: Finding;
+  // onFix 存在时渲染 AI 修复按钮
+  onFix?: () => Promise<FixResponse>;
 }
 
-export function FindingCard({ finding }: Props) {
+export function FindingCard({ finding, onFix }: Props) {
   const [open, setOpen] = useState(false);
+  const [fixState, setFixState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [fixResult, setFixResult] = useState<FixResponse | null>(null);
+  const [showPatch, setShowPatch] = useState(false);
+
+  const handleFix = async () => {
+    if (!onFix || fixState === "loading") return;
+    setFixState("loading");
+    setFixResult(null);
+    try {
+      const result = await onFix();
+      setFixResult(result);
+      setFixState(result.status === "error" ? "error" : "done");
+    } catch (err) {
+      setFixResult({ status: "error", patch: null, review_verdict: "", pr_url: null, error: String(err) });
+      setFixState("error");
+    }
+  };
 
   return (
     <div className={`border border-line border-l-2 bg-panel ${SEV_BORDER[finding.severity] ?? "border-l-sev_low"}`}>
@@ -99,6 +119,81 @@ export function FindingCard({ finding }: Props) {
               <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap border border-line bg-bg p-3 font-mono text-xs leading-relaxed text-muted">
                 {finding.reasoning}
               </pre>
+            )}
+          </div>
+        )}
+
+        {/* AI 修复区域（仅登录+绑定 PAT 时渲染 onFix） */}
+        {onFix && (
+          <div className="mt-2 border-t border-line pt-2">
+            {fixState === "idle" && (
+              <button
+                onClick={() => void handleFix()}
+                className="font-mono text-xs border border-amberdim px-2 py-0.5 text-amber hover:bg-amberdim hover:text-bg transition-colors"
+              >
+                ↑ AI 修复
+              </button>
+            )}
+            {fixState === "loading" && (
+              <span className="font-mono text-xs text-muted">
+                AI 修复中：生成补丁 → DeepSeek 审核…
+              </span>
+            )}
+            {(fixState === "done" || fixState === "error") && fixResult && (
+              <div className="space-y-1">
+                {/* 审核结论 */}
+                <div className={`font-mono text-xs border-l-2 pl-2 ${fixResult.status === "approved" ? "border-amber text-amber" : "border-sev_high text-sev_high"}`}>
+                  {fixResult.status === "approved" ? "DeepSeek 审核通过" : fixResult.status === "rejected" ? "DeepSeek 审核拒绝" : "修复失败"}
+                  {fixResult.review_verdict && (
+                    <span className="text-muted ml-1">— {fixResult.review_verdict}</span>
+                  )}
+                </div>
+
+                {/* PR 链接 */}
+                {fixResult.pr_url && (
+                  <div className="font-mono text-xs">
+                    <span className="text-muted">新 PR：</span>
+                    <a
+                      href={fixResult.pr_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-link underline hover:text-fg"
+                    >
+                      {fixResult.pr_url} ↗
+                    </a>
+                  </div>
+                )}
+
+                {/* 错误信息 */}
+                {fixResult.error && (
+                  <div className="font-mono text-xs text-sev_high">! {fixResult.error}</div>
+                )}
+
+                {/* 补丁展开 */}
+                {fixResult.patch && (
+                  <div>
+                    <button
+                      onClick={() => setShowPatch((v) => !v)}
+                      className="font-mono text-xs text-link hover:text-fg"
+                    >
+                      {showPatch ? "[-]" : "[+]"} patch diff
+                    </button>
+                    {showPatch && (
+                      <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap border border-line bg-bg p-3 font-mono text-xs leading-relaxed text-muted">
+                        {fixResult.patch}
+                      </pre>
+                    )}
+                  </div>
+                )}
+
+                {/* 重试 */}
+                <button
+                  onClick={() => { setFixState("idle"); setFixResult(null); }}
+                  className="font-mono text-xs text-faint hover:text-fg"
+                >
+                  [retry]
+                </button>
+              </div>
             )}
           </div>
         )}
