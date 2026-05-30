@@ -1,4 +1,4 @@
-"""AI 改码闭环单元测试（全 mock，不调真实 how88/DeepSeek/GitHub）。
+"""AI 改码闭环单元测试（全 mock，不调真实 DeepSeek/GitHub）。
 
 测试策略：
 - 服务层：mock call_how88 / call_deepseek / open_pr，测管线逻辑分支
@@ -105,11 +105,11 @@ FAKE_PATCH = """--- a/src/main.py
 
 
 def test_pipeline_approved():
-    """how88 生成补丁 + DeepSeek approve → 状态为 approved，有 pr_url。"""
+    """DeepSeek 生成补丁 + DeepSeek approve → 状态为 approved，有 pr_url。"""
     finding = _make_finding()
 
     with (
-        patch("app.services.ai_fix_service.call_how88_for_patch", return_value=f"PATCH:\n```diff\n{FAKE_PATCH}\n```"),
+        patch("app.services.ai_fix_service.call_deepseek_for_patch", return_value=f"PATCH:\n```diff\n{FAKE_PATCH}\n```"),
         patch("app.services.ai_fix_service.call_deepseek_for_review", return_value={
             "verdict": "approve", "confidence": "high", "reason": "Correct fix.", "concerns": []
         }),
@@ -133,7 +133,7 @@ def test_pipeline_rejected_by_deepseek():
     finding = _make_finding()
 
     with (
-        patch("app.services.ai_fix_service.call_how88_for_patch", return_value=f"PATCH:\n```diff\n{FAKE_PATCH}\n```"),
+        patch("app.services.ai_fix_service.call_deepseek_for_patch", return_value=f"PATCH:\n```diff\n{FAKE_PATCH}\n```"),
         patch("app.services.ai_fix_service.call_deepseek_for_review", return_value={
             "verdict": "reject", "confidence": "high", "reason": "Introduces new bug.", "concerns": ["breaks edge case"]
         }),
@@ -153,11 +153,11 @@ def test_pipeline_rejected_by_deepseek():
 
 
 def test_pipeline_cannot_fix():
-    """how88 返回 CANNOT_FIX → rejected，不进入 DeepSeek 步骤。"""
+    """DeepSeek 返回 CANNOT_FIX → rejected，不进入 DeepSeek 步骤。"""
     finding = _make_finding()
 
     with (
-        patch("app.services.ai_fix_service.call_how88_for_patch", return_value="CANNOT_FIX:\nArchitectural issue."),
+        patch("app.services.ai_fix_service.call_deepseek_for_patch", return_value="CANNOT_FIX:\nArchitectural issue."),
         patch("app.services.ai_fix_service.call_deepseek_for_review") as mock_ds,
     ):
         result = run_fix_pipeline(
@@ -172,11 +172,11 @@ def test_pipeline_cannot_fix():
     assert result.status == "rejected"
 
 
-def test_pipeline_how88_error():
-    """how88 网络失败 → 状态为 error。"""
+def test_pipeline_deepseek_error():
+    """DeepSeek 调用失败 → 状态为 error。"""
     finding = _make_finding()
 
-    with patch("app.services.ai_fix_service.call_how88_for_patch", side_effect=Exception("timeout")):
+    with patch("app.services.ai_fix_service.call_deepseek_for_patch", side_effect=Exception("timeout")):
         result = run_fix_pipeline(
             finding=finding,
             diff_context="diff",
