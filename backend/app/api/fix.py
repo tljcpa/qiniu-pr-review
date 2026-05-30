@@ -65,8 +65,7 @@ async def fix_finding(
     # 重新拉 PR 元信息（需要 owner/repo/base_ref/head_sha/diff）
     def _fetch_and_run() -> FixResult:
         pr = GitHubFetcher().fetch(job.req.url)
-        parsed = parse_pr_url(job.req.url)
-        owner, repo = parsed["owner"], parsed["repo"]
+        owner, repo, _pr_number = parse_pr_url(job.req.url)
 
         # 验证 PAT 是该仓库的所有者（安全检查：只允许向自己的 repo 开 PR）
         if current_user.github_username and current_user.github_username.lower() != owner.lower():

@@ -269,3 +269,45 @@ def test_fix_endpoint_review_not_done(authed_client_with_pat):
     assert resp.status_code == 409
 
     del _jobs["testjob001"]
+
+
+def test_fix_endpoint_parses_pr_url_tuple(authed_client_with_pat):
+    """回归：parse_pr_url 返回 tuple，端点必须按位解包而非按字符串下标取值。
+
+    曾经的 bug：`owner, repo = parsed["owner"], parsed["repo"]` 在 tuple 上抛
+    TypeError: tuple indices must be integers or slices, not str，导致 AI 修复一点就报错。
+    owner 必须等于绑定 PAT 的 github_username（fixer-gh），否则被 403 所有权检查挡在解包之前，测不到这条路径。
+    """
+    from app.api.review import _Job, _jobs, ReviewRequest
+    from app.models.finding import Finding, ReviewReport
+
+    done_job = _Job(ReviewRequest(url="https://github.com/fixer-gh/repo/pull/7"))
+    done_job.status = "done"
+    done_job.report = ReviewReport(
+        findings=[Finding(file="app.py", title="SQL 注入", detail="d", suggestion="s")],
+    )
+    _jobs["testjob_tuple"] = {"job": done_job}
+
+    fake_pr = MagicMock()
+    fake_pr.files = []
+    fake_pr.base_ref = "main"
+    fake_pr.head_sha = "deadbeef"
+
+    with patch("app.api.fix.GitHubFetcher") as MockFetcher, patch(
+        "app.api.fix.run_fix_pipeline",
+        return_value=FixResult(
+            status="rejected",
+            patch=None,
+            review_verdict="reject: 演示桩",
+            pr_url=None,
+            error=None,
+        ),
+    ):
+        MockFetcher.return_value.fetch.return_value = fake_pr
+        resp = authed_client_with_pat.post("/api/review/testjob_tuple/fix/0")
+
+    assert resp.status_code == 200, resp.text
+    assert "tuple indices" not in resp.text
+    assert resp.json()["status"] == "rejected"
+
+    del _jobs["testjob_tuple"]
