@@ -244,6 +244,41 @@ async def get_review(review_id: str) -> dict:
     }
 
 
+@router.post("/review/{review_id}/publish")
+async def publish_review(review_id: str) -> dict:
+    """把审查结果写回原 PR（inline 行内批注 + summary review）。创新亮点，见复盘 D-36。"""
+    entry = _jobs.get(review_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="review_id 不存在")
+    job: _Job = entry["job"]
+    if job.status != "done" or job.report is None:
+        raise HTTPException(status_code=409, detail="审查尚未完成，无法发布")
+
+    from app.services.github_fetcher import GitHubFetcher
+    from app.services.pr_writeback import PRWritebackError, PRWritebackService
+
+    def _do() -> dict:
+        # 重新拉一次 PR 拿最新 diff（含 head_sha 与各文件 patch）
+        pr = GitHubFetcher().fetch(job.req.url)
+        result = PRWritebackService().write_back(job.req.url, pr, job.report)
+        return {
+            "ok": result.ok,
+            "review_url": result.review_url,
+            "inline_count": result.inline_count,
+            "summary_only_count": result.summary_only_count,
+            "message": result.message,
+        }
+
+    try:
+        return await run_in_threadpool(_do)
+    except PRWritebackError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except GitHubFetchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"发布失败：{type(exc).__name__}: {exc}") from exc
+
+
 @router.get("/cache/stats")
 async def cache_stats() -> dict:
     """缓存命中率等统计（答辩演示用）。"""

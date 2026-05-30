@@ -27,16 +27,69 @@ const TERMINAL = new Set(["done", "error"]);
  * 驱动一次 review：POST 建任务 -> EventSource 收 SSE 进度 -> done 后 GET 最终结果。
  * 把后端的流式事件转成前端可渲染的日志流 + 最终报告。
  */
+// 发布（写回 PR）状态
+export type PublishStatus = "idle" | "publishing" | "done" | "error";
+
+export interface PublishState {
+  status: PublishStatus;
+  reviewUrl: string;
+  inlineCount: number;
+  summaryOnlyCount: number;
+  error: string | null;
+}
+
+const PUBLISH_INITIAL: PublishState = {
+  status: "idle",
+  reviewUrl: "",
+  inlineCount: 0,
+  summaryOnlyCount: 0,
+  error: null,
+};
+
 export function useReview() {
   const [state, setState] = useState<ReviewState>(INITIAL);
+  const [publish, setPublish] = useState<PublishState>(PUBLISH_INITIAL);
   const esRef = useRef<EventSource | null>(null);
+  const reviewIdRef = useRef<string>("");
 
   const reset = useCallback(() => {
     if (esRef.current) {
       esRef.current.close();
       esRef.current = null;
     }
+    reviewIdRef.current = "";
+    setPublish(PUBLISH_INITIAL);
     setState(INITIAL);
+  }, []);
+
+  // 把当前审查结果写回原 PR（inline 批注 + summary review）
+  const publishToPR = useCallback(async () => {
+    const reviewId = reviewIdRef.current;
+    if (!reviewId) {
+      return;
+    }
+    setPublish({ ...PUBLISH_INITIAL, status: "publishing" });
+    try {
+      const resp = await fetch(`/api/review/${reviewId}/publish`, { method: "POST" });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setPublish({
+          ...PUBLISH_INITIAL,
+          status: "error",
+          error: String(data.detail ?? `HTTP ${resp.status}`),
+        });
+        return;
+      }
+      setPublish({
+        status: "done",
+        reviewUrl: data.review_url ?? "",
+        inlineCount: data.inline_count ?? 0,
+        summaryOnlyCount: data.summary_only_count ?? 0,
+        error: null,
+      });
+    } catch (err) {
+      setPublish({ ...PUBLISH_INITIAL, status: "error", error: String(err) });
+    }
   }, []);
 
   const pushEvent = useCallback((type: string, data: Record<string, unknown>) => {
@@ -83,6 +136,7 @@ export function useReview() {
         }
         const data = await resp.json();
         reviewId = data.review_id;
+        reviewIdRef.current = reviewId;
       } catch (err) {
         setState((prev) => ({ ...prev, status: "error", error: String(err) }));
         return;
@@ -148,5 +202,5 @@ export function useReview() {
     [reset, pushEvent, fetchFinalReport]
   );
 
-  return { state, start, reset };
+  return { state, start, reset, publish, publishToPR };
 }

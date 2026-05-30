@@ -10,7 +10,7 @@ export default function App() {
   const [url, setUrl] = useState("");
   const [useCache, setUseCache] = useState(true);
   const [showLow, setShowLow] = useState(false);
-  const { state, start, reset } = useReview();
+  const { state, start, reset, publish, publishToPR } = useReview();
 
   const running = state.status === "running";
 
@@ -157,6 +157,43 @@ export default function App() {
               <div className="px-3 py-2">
                 <div className="mb-1 font-mono text-xs uppercase tracking-wider text-amber">summary</div>
                 <p className="whitespace-pre-wrap font-sans text-fg">{state.report.summary}</p>
+              </div>
+              {/* 发布到 PR：把审查结果写回 GitHub（inline 批注 + summary review） */}
+              <div className="flex flex-wrap items-center gap-3 border-t border-line px-3 py-2 font-mono text-xs">
+                <button
+                  type="button"
+                  onClick={() => void publishToPR()}
+                  disabled={publish.status === "publishing"}
+                  className="border border-amberdim bg-panel2 px-3 py-1 font-bold text-amber transition-colors hover:bg-amberdim hover:text-bg disabled:cursor-not-allowed disabled:opacity-40"
+                  title="用 GitHub API 把审查结果写回这条 PR：风险行 inline 批注 + 整体 summary review（event=COMMENT，不改变合并状态）"
+                >
+                  {publish.status === "publishing" ? "publishing…" : "↑ 发布到 PR"}
+                </button>
+                {publish.status === "idle" && (
+                  <span className="text-faint">把审查作为 inline 批注 + summary review 写回 GitHub PR</span>
+                )}
+                {publish.status === "done" && (
+                  <span className="text-amber">
+                    ✓ 已发布：{publish.inlineCount} 条行内批注
+                    {publish.summaryOnlyCount > 0 ? ` + ${publish.summaryOnlyCount} 条列入总结` : ""}
+                    {publish.reviewUrl && (
+                      <>
+                        {" · "}
+                        <a
+                          href={publish.reviewUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-link underline hover:text-fg"
+                        >
+                          在 GitHub 查看 ↗
+                        </a>
+                      </>
+                    )}
+                  </span>
+                )}
+                {publish.status === "error" && (
+                  <span className="text-sev_high">! 发布失败：{publish.error}</span>
+                )}
               </div>
             </div>
 
