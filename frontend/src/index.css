@@ -12,10 +12,22 @@ body {
   margin: 0;
   background: #17150f;
   color: #e4ddcf;
-  font-family: "JetBrains Mono", Consolas, Menlo, monospace;
+  /* UI 默认无衬线（IBM Plex Sans）；代码/日志/findings 区块显式 font-mono 切等宽 */
+  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* 终端面板的"扫描线"质感：极淡的水平条纹，营造 CRT/终端气质（不是装饰渐变） */
+.terminal-grain {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }
 
 /* 细滚动条，贴合终端工具 */

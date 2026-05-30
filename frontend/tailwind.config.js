@@ -24,7 +24,9 @@ export default {
         sev_low: "#7d7565",
       },
       fontFamily: {
+        // 代码/日志/findings 正文用等宽 JetBrains Mono；UI(标题/说明/按钮)用 IBM Plex Sans
         mono: ["'JetBrains Mono'", "'Fira Code'", "Consolas", "Menlo", "monospace"],
+        sans: ["'IBM Plex Sans'", "system-ui", "-apple-system", "sans-serif"],
       },
       borderRadius: {
         // 克制圆角：全站统一 2-3px，无大圆角

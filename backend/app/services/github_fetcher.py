@@ -43,9 +43,11 @@ def _friendly_github_error(status: int) -> str:
     return f"GitHub 访问出错（HTTP {status}），请稍后重试或换一个 PR。"
 
 
-# 匹配 https://github.com/<owner>/<repo>/pull/<number>，允许结尾带 /files、#discussion 等
+# 匹配 https://github.com/<owner>/<repo>/pull/<number>，允许结尾带 /files、#discussion 等。
+# 锚定：必须以 http(s)://[www.]github.com/ 开头（^ 锚定 + 域名后紧跟 /），
+# 防止 https://evil.com/github.com/... 这类绕过把请求引向非 github 主机（缩小 SSRF 面，见复盘 D-33）。
 _URL_RE = re.compile(
-    r"github\.com/(?P<owner>[^/\s]+)/(?P<repo>[^/\s]+)/pull/(?P<number>\d+)"
+    r"^https?://(?:www\.)?github\.com/(?P<owner>[^/\s]+)/(?P<repo>[^/\s]+)/pull/(?P<number>\d+)"
 )
 # 匹配简写 owner/repo#123
 _SHORT_RE = re.compile(
