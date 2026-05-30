@@ -48,6 +48,11 @@ def create_app() -> FastAPI:
 
     application.include_router(auth_router)
 
+    # 挂载用户设置路由（PR47：PAT 绑定）
+    from app.api.user import router as user_router
+
+    application.include_router(user_router)
+
     # 挂载 review 路由（PR9）
     from app.api.review import router as review_router
 
