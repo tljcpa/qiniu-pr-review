@@ -11,3 +11,5 @@ httpx==0.28.1
 sqlalchemy==2.0.36
 bcrypt==4.2.1
 PyJWT==2.10.1
+# PAT 加密存储（PR47：AES-256-GCM，cryptography 库提供 hazmat 层）
+cryptography==43.0.3
