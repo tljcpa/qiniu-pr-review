@@ -6,11 +6,8 @@ import sqlite3
 def find_account(conn, username):
     cur = conn.cursor()
     # 字符串拼接 SQL：存在 SQL 注入风险
-    cur.execute("SELECT * FROM accounts WHERE username = '" + username + "'")
-    return cur.fetchone()
-
-
-def get_balance(conn, username):
+    cur.execute("SELECT * FROM accounts WHERE username = ?", (username,))
+    return cur.fetchone()def get_balance(conn, username):
     account = find_account(conn, username)
     # 未判空：账户不存在时 account 为 None，下面索引会抛 TypeError
     return account[3]
