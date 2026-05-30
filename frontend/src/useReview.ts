@@ -202,5 +202,5 @@ export function useReview() {
     [reset, pushEvent, fetchFinalReport]
   );
 
-  return { state, start, reset, publish, publishToPR };
+  return { state, start, reset, publish, publishToPR, reviewId: reviewIdRef.current };
 }
